@@ -1,4 +1,4 @@
-"""导视系统领域服务：指示内容规范校验、安装点位重复检查。"""
+"""导视系统领域服务：指示内容规范校验、安装点位重复检查、展位关联。"""
 from __future__ import annotations
 from typing import Any
 from app.services.base import BaseModuleService
@@ -14,7 +14,7 @@ class SignageService(BaseModuleService):
     STATUS_ORDER = ["草稿", "待确认", "已确认", "已撤回"]
     ACTION_RULES = {"确认导视": "已确认", "提交确认": "待确认", "撤回记录": "已撤回"}
     NEGATIVE_ACTIONS = []
-    RELATED_MODULES = ["electrical"]
+    RELATED_MODULES = ["electrical", "booth"]
 
     def validate_entry(self, values: dict[str, Any]) -> list[str]:
         errors: list[str] = []
@@ -27,6 +27,19 @@ class SignageService(BaseModuleService):
                     break
         return errors
 
+    def validate_action(self, entry_id: int, action: str) -> tuple[bool, str]:
+        if action == "确认导视":
+            entry = store.find(self.MODULE, entry_id)
+            if entry is None:
+                return False, "导视牌不存在"
+        return True, ""
+
     def domain_snapshot(self) -> dict[str, Any]:
         base = super().domain_snapshot()
+        rows = store.rows(self.MODULE)
+        by_type: dict[str, int] = {}
+        for r in rows:
+            t = str(r.get("发光类型", ""))
+            by_type[t] = by_type.get(t, 0) + 1
+        base["by_light_type"] = by_type
         return base

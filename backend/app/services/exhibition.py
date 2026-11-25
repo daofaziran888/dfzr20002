@@ -500,6 +500,189 @@ def ensure_idempotent(module: str, entry_id: int, action: str) -> dict[str, Any]
 
 # ---------- 配额综合视图 ----------
 
+# ---------- 跨模块关联查询 ----------
+
+def booth_venue_info(booth_no: str) -> dict[str, Any]:
+    """查找展位所属的场馆信息（展位→场馆）。"""
+    booth = store.find_booth(booth_no)
+    if booth is None:
+        return {"ok": False, "reason": f"展位 {booth_no} 不存在"}
+    venue_name = str(booth.get("所属区域", ""))
+    for venue in store.rows("venue"):
+        if str(venue.get("场馆名称", "")) == venue_name:
+            return {"ok": True, "booth": booth, "venue": venue, "venue_name": venue_name}
+    return {"ok": False, "reason": f"展位 {booth_no} 的场馆 {venue_name} 不存在", "booth": booth}
+
+
+def exhibitor_booth_info(exhibitor_id: int) -> dict[str, Any]:
+    """查找参展商关联的展位信息（参展商→展位）。"""
+    exhibitor = store.find("exhibitor", exhibitor_id)
+    if exhibitor is None:
+        return {"ok": False, "reason": f"参展商 {exhibitor_id} 不存在"}
+    remark = str(exhibitor.get("备注说明", ""))
+    booth = store.find_booth(remark) if remark else None
+    return {
+        "ok": True,
+        "exhibitor": exhibitor,
+        "booth": booth,
+        "booth_no": remark,
+        "linked": booth is not None,
+    }
+
+
+def design_booth_info(design_id: int) -> dict[str, Any]:
+    """查找设计方案对应的展位信息（设计→展位）。"""
+    design = store.find("design", design_id)
+    if design is None:
+        return {"ok": False, "reason": f"设计方案 {design_id} 不存在"}
+    remark = str(design.get("备注说明", ""))
+    booth = store.find_booth(remark) if remark else None
+    return {
+        "ok": True,
+        "design": design,
+        "booth": booth,
+        "booth_no": remark,
+        "linked": booth is not None,
+    }
+
+
+def material_design_info(material_id: int) -> dict[str, Any]:
+    """查找物料对应的设计方案信息（物料→设计）。"""
+    material = store.find("material", material_id)
+    if material is None:
+        return {"ok": False, "reason": f"物料 {material_id} 不存在"}
+    remark = str(material.get("备注说明", ""))
+    designs = store.rows("design")
+    matched_design = None
+    for design in designs:
+        if str(design.get("备注说明", "")) == remark:
+            matched_design = design
+            break
+    booth = store.find_booth(remark) if remark else None
+    return {
+        "ok": True,
+        "material": material,
+        "design": matched_design,
+        "booth": booth,
+        "booth_no": remark,
+        "linked": matched_design is not None,
+    }
+
+
+def incident_venue_info(incident_id: int) -> dict[str, Any]:
+    """查找突发事件对应的场馆信息（事件→场馆）。"""
+    incident = store.find("incident", incident_id)
+    if incident is None:
+        return {"ok": False, "reason": f"事件记录 {incident_id} 不存在"}
+    location = str(incident.get("发生位置", ""))
+    matched_venue = None
+    for venue in store.rows("venue"):
+        if str(venue.get("场馆名称", "")) in location or location in str(venue.get("场馆名称", "")):
+            matched_venue = venue
+            break
+    booth_no = location.split("顶部")[0] if "顶部" in location else location
+    booth = store.find_booth(booth_no) if booth_no else None
+    if booth and not matched_venue:
+        venue_name = str(booth.get("所属区域", ""))
+        for venue in store.rows("venue"):
+            if str(venue.get("场馆名称", "")) == venue_name:
+                matched_venue = venue
+                break
+    return {
+        "ok": True,
+        "incident": incident,
+        "venue": matched_venue,
+        "booth": booth,
+        "linked": matched_venue is not None or booth is not None,
+    }
+
+
+def handover_schedule_info(handover_id: int) -> dict[str, Any]:
+    """查找交场确认对应的排期信息（交场→排期）。"""
+    handover = store.find("handover", handover_id)
+    if handover is None:
+        return {"ok": False, "reason": f"交场单 {handover_id} 不存在"}
+    schedules = store.rows("schedule")
+    active_schedule = None
+    for schedule in schedules:
+        if schedule.get("status") == "已确认":
+            active_schedule = schedule
+            break
+    booth_no = str(handover.get("遗留事项", ""))
+    booth = store.find_booth(booth_no) if booth_no else None
+    return {
+        "ok": True,
+        "handover": handover,
+        "schedule": active_schedule,
+        "booth": booth,
+        "linked": active_schedule is not None,
+    }
+
+
+def cross_module_snapshot(booth_no: str) -> dict[str, Any]:
+    """跨模块全局快照：查询展位的全链路关联数据。"""
+    booth = store.find_booth(booth_no)
+    if booth is None:
+        return {"ok": False, "reason": f"展位 {booth_no} 不存在"}
+
+    venue_name = str(booth.get("所属区域", ""))
+    venue = None
+    for v in store.rows("venue"):
+        if str(v.get("场馆名称", "")) == venue_name:
+            venue = v
+            break
+
+    exhibitors = [e for e in store.rows("exhibitor")
+                  if str(e.get("备注说明", "")) == booth_no]
+    designs = [d for d in store.rows("design")
+               if str(d.get("备注说明", "")) == booth_no]
+    materials = [m for m in store.rows("material")
+                 if str(m.get("备注说明", "")) == booth_no]
+    electricals = store.booth_electrical(booth_no)
+    safeties = store.booth_safety(booth_no)
+    lightings = [l for l in store.rows("lighting")
+                 if booth_no in str(l.get("备注说明", ""))]
+    audio_visuals = [av for av in store.rows("audio_visual")
+                     if booth_no in str(av.get("备注说明", ""))]
+    furnitures = [f for f in store.rows("furniture")
+                  if booth_no in str(f.get("备注说明", ""))]
+    constructions = [c for c in store.rows("construction")
+                     if booth_no in str(c.get("备注说明", ""))]
+    checklists = store.booth_checklist(booth_no)
+    change_orders = [co for co in store.rows("change_order")
+                     if booth_no in str(co.get("影响展位", ""))]
+    handovers = store.booth_handover(booth_no)
+    incidents = [inc for inc in store.rows("incident")
+                 if booth_no in str(inc.get("发生位置", ""))]
+
+    return {
+        "ok": True,
+        "booth_no": booth_no,
+        "booth": booth,
+        "venue": venue,
+        "exhibitors": exhibitors,
+        "designs": designs,
+        "materials": materials,
+        "electricals": electricals,
+        "safeties": safeties,
+        "lightings": lightings,
+        "audio_visuals": audio_visuals,
+        "furnitures": furnitures,
+        "constructions": constructions,
+        "checklists": checklists,
+        "change_orders": change_orders,
+        "handovers": handovers,
+        "incidents": incidents,
+        "module_count": sum(1 for v in [
+            booth, venue, exhibitors, designs, materials, electricals,
+            safeties, lightings, audio_visuals, furnitures, constructions,
+            checklists, change_orders, handovers, incidents
+        ] if v),
+    }
+
+
+# ---------- 配额综合视图 ----------
+
 def quota_summary() -> dict[str, Any]:
     """全场面积配额与功率配额的综合结论。"""
     venues = store.rows("venue")

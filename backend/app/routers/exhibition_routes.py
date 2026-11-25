@@ -115,3 +115,68 @@ def dag_validate() -> dict:
 def safety_status(booth_no: str) -> dict:
     """展位安全巡检状态。"""
     return exhibition.check_safety_gate(booth_no)
+
+
+# ---------- 跨模块关联查询路由 ----------
+
+@exhibition_router.get("/booth/{booth_no}/venue")
+def booth_venue(booth_no: str) -> dict:
+    """展位→场馆关联查询。"""
+    result = exhibition.booth_venue_info(booth_no)
+    if not result["ok"]:
+        raise HTTPException(status_code=404, detail=result["reason"])
+    return result
+
+
+@exhibition_router.get("/exhibitor/{exhibitor_id}/booth")
+def exhibitor_booth(exhibitor_id: int) -> dict:
+    """参展商→展位关联查询。"""
+    result = exhibition.exhibitor_booth_info(exhibitor_id)
+    if not result["ok"]:
+        raise HTTPException(status_code=404, detail=result["reason"])
+    return result
+
+
+@exhibition_router.get("/design/{design_id}/booth")
+def design_booth(design_id: int) -> dict:
+    """设计→展位关联查询。"""
+    result = exhibition.design_booth_info(design_id)
+    if not result["ok"]:
+        raise HTTPException(status_code=404, detail=result["reason"])
+    return result
+
+
+@exhibition_router.get("/material/{material_id}/design")
+def material_design(material_id: int) -> dict:
+    """物料→设计关联查询。"""
+    result = exhibition.material_design_info(material_id)
+    if not result["ok"]:
+        raise HTTPException(status_code=404, detail=result["reason"])
+    return result
+
+
+@exhibition_router.get("/incident/{incident_id}/venue")
+def incident_venue(incident_id: int) -> dict:
+    """事件→场馆关联查询。"""
+    result = exhibition.incident_venue_info(incident_id)
+    if not result["ok"]:
+        raise HTTPException(status_code=404, detail=result["reason"])
+    return result
+
+
+@exhibition_router.get("/handover/{handover_id}/schedule")
+def handover_schedule(handover_id: int) -> dict:
+    """交场→排期关联查询。"""
+    result = exhibition.handover_schedule_info(handover_id)
+    if not result["ok"]:
+        raise HTTPException(status_code=404, detail=result["reason"])
+    return result
+
+
+@exhibition_router.get("/booth/{booth_no}/cross-snapshot")
+def cross_snapshot(booth_no: str) -> dict:
+    """展位跨模块全局快照。"""
+    result = exhibition.cross_module_snapshot(booth_no)
+    if not result["ok"]:
+        raise HTTPException(status_code=404, detail=result["reason"])
+    return result
