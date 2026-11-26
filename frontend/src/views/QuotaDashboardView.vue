@@ -68,14 +68,14 @@
       <div v-if="summary?.power_quotas?.length">
         <article
           v-for="item in summary.power_quotas"
-          :key="(item.quota as Record<string, string>).booth_no"
+          :key="item.quota.booth_no"
           class="quota-item"
           :class="item.ok ? 'quota-ok' : 'quota-warn'"
         >
-          <strong>展位 {{ (item.quota as Record<string, string>).booth_no }}</strong>
+          <strong>展位 {{ item.quota.booth_no }}</strong>
           <span>
-            设计负荷 {{ (item.quota as Record<string, number>).design_load }}kW
-            | 回路总功率 {{ (item.quota as Record<string, number>).total_circuit_power }}kW
+            设计负荷 {{ item.quota.design_load }}kW
+            | 回路总功率 {{ item.quota.total_circuit_power }}kW
           </span>
           <span v-if="!item.ok" class="text-danger">⚠ {{ item.reason }}</span>
         </article>

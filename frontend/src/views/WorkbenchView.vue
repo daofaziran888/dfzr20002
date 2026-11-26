@@ -94,7 +94,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 import {
   createEntry,
@@ -102,7 +102,8 @@ import {
   listEntries,
   moduleMeta,
   runAction as applyAction,
-} from '@/api/backend-service'import type { EntryRow } from '@/data/types'
+} from '@/api/backend-service'
+import type { EntryRow } from '@/data/types'
 
 const props = defineProps<{ moduleKey: string }>()
 const meta = moduleMeta(props.moduleKey)
@@ -185,3 +186,6 @@ async function reload() {
     errorMessage.value = error instanceof Error ? error.message : '业务列表读取失败'
   }
 }
+
+onMounted(reload)
+</script>

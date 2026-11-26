@@ -13,7 +13,7 @@
         <span class="head-desc">策展人、设计师和施工团队共同编排展位布局、展品运输与搭建进度，按同一版执行方案完成布展交付。</span>
         <span class="head-user">当前值班：应用开发组</span>
       </header>
-      <RouterView />
+      <RouterView :key="$route.path" />
     </main>
   </div>
 </template>
